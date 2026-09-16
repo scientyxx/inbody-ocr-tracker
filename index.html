@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Iron Log — Gym Body Tracker</title>
+    <meta name="theme-color" content="#18181a" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div
+        class="topbar"
+        style="
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+        "
+      >
+        <div>
+          <h1>Iron Log</h1>
+          <div class="tagline" id="topbar-tagline">
+            Pantau progress timbangan gym kamu
+          </div>
+        </div>
+        <button
+          id="btn-edit-profile"
+          style="
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--line);
+            background: none;
+            color: var(--text-dim);
+            cursor: pointer;
+          "
+        >
+          Profil
+        </button>
+      </div>
+
+      <section class="view" id="view-profile">
+        <div class="card">
+          <h2>Profil kamu</h2>
+          <p class="field-hint" style="margin-bottom: 14px">
+            Data ini cuma disimpan di HP ini, dipakai buat sapaan & auto-isi
+            beberapa kolom pas scan laporan.
+          </p>
+          <div class="field">
+            <label>Nama</label><input type="text" id="p-name" />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Umur</label><input type="number" id="p-age" />
+            </div>
+            <div class="field">
+              <label>Tinggi (cm)</label><input type="number" id="p-height" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Berat saat ini (kg)</label
+              ><input type="number" step="0.1" id="p-weight" />
+            </div>
+            <div class="field">
+              <label>Gender</label>
+              <select id="p-gender">
+                <option value="cowo">Cowo</option>
+                <option value="cewe">Cewe</option>
+              </select>
+            </div>
+          </div>
+          <button
+            class="btn btn-primary"
+            id="btn-profile-save"
+            style="margin-top: 8px"
+          >
+            Simpan Profil
+          </button>
+        </div>
+      </section>
+
+      <section class="view active" id="view-home">
+        <div id="home-content"></div>
+      </section>
+
+      <section class="view" id="view-scan">
+        <div class="card">
+          <h2>Scan QR struk</h2>
+          <div class="scan-video-wrap" id="qr-wrap" style="display: none">
+            <video id="qr-video" playsinline muted></video>
+            <div class="scan-reticle"></div>
+            <div class="scan-status" id="qr-status">
+              Arahkan kamera ke QR di struk timbangan
+            </div>
+          </div>
+          <button class="btn btn-primary" id="btn-start-qr">
+            Buka kamera &amp; scan QR
+          </button>
+          <button
+            class="btn btn-secondary"
+            id="btn-qr-from-photo"
+            style="margin-top: 10px"
+          >
+            Scan QR dari foto
+          </button>
+          <input
+            type="file"
+            accept="image/*"
+            class="hidden-input"
+            id="input-qr-photo"
+          />
+          <div id="qr-result" style="margin-top: 12px"></div>
+        </div>
+
+        <div class="divider-word">atau</div>
+
+        <div class="card">
+          <h2>Foto laporan timbangan</h2>
+          <p class="field-hint" style="margin-bottom: 12px">
+            Kalau QR membuka halaman/foto laporan di browser, screenshot halaman
+            itu lalu upload di sini. Bisa juga langsung foto struk fisiknya
+            kalau ada.
+          </p>
+          <div class="btn-row">
+            <button class="btn btn-secondary" id="btn-camera-capture">
+              Ambil foto
+            </button>
+            <button class="btn btn-secondary" id="btn-upload">
+              Upload foto
+            </button>
+          </div>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="hidden-input"
+            id="input-camera"
+          />
+          <input
+            type="file"
+            accept="image/*"
+            class="hidden-input"
+            id="input-upload"
+          />
+        </div>
+
+        <div class="card" id="ocr-progress-card" style="display: none">
+          <img id="ocr-thumb" class="thumb-preview" style="display: none" />
+          <div class="ocr-progress">
+            <div class="spinner"></div>
+            <div id="ocr-progress-text">Membaca gambar…</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-review">
+        <div class="card">
+          <h2>Cek &amp; lengkapi hasil</h2>
+          <p class="field-hint" style="margin-bottom: 14px">
+            OCR bisa salah baca angka — cek tiap kolom sebelum disimpan.
+          </p>
+
+          <details class="raw-ocr" id="raw-ocr-wrap">
+            <summary>Lihat teks mentah hasil OCR</summary>
+            <pre id="raw-ocr-text"></pre>
+          </details>
+
+          <div class="field">
+            <label>Tanggal timbang</label>
+            <input type="date" id="f-date" />
+          </div>
+
+          <div class="section-tag">Data diri (dari struk)</div>
+          <div class="field-row">
+            <div class="field">
+              <label>Usia</label><input type="number" id="f-age" />
+            </div>
+            <div class="field">
+              <label>Tinggi (cm)</label><input type="number" id="f-height" />
+            </div>
+          </div>
+          <div class="field">
+            <label>S/N struk (opsional)</label><input type="text" id="f-sn" />
+          </div>
+
+          <div class="section-tag">Komposisi utama</div>
+          <div class="field-row">
+            <div class="field">
+              <label>Berat (kg)</label
+              ><input type="number" step="0.1" id="f-weight" />
+            </div>
+            <div class="field">
+              <label>Otot / Muscle (kg)</label
+              ><input type="number" step="0.1" id="f-muscle" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Lemak / Fat (kg)</label
+              ><input type="number" step="0.1" id="f-fat" />
+            </div>
+            <div class="field">
+              <label>FFM (kg)</label
+              ><input type="number" step="0.1" id="f-ffm" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>BMI</label><input type="number" step="0.1" id="f-bmi" />
+            </div>
+            <div class="field">
+              <label>PBF / Body fat (%)</label
+              ><input type="number" step="0.1" id="f-pbf" />
+            </div>
+          </div>
+
+          <div class="section-tag">Cairan &amp; komposisi lain</div>
+          <div class="field-row">
+            <div class="field">
+              <label>Air tubuh (kg)</label
+              ><input type="number" step="0.1" id="f-water" />
+            </div>
+            <div class="field">
+              <label>Protein (kg)</label
+              ><input type="number" step="0.1" id="f-protein" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Abio-salt (kg)</label
+              ><input type="number" step="0.1" id="f-abio" />
+            </div>
+            <div class="field">
+              <label>Moisture ratio (%)</label
+              ><input type="number" step="0.1" id="f-moisture" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>WHR</label><input type="number" step="0.01" id="f-whr" />
+            </div>
+            <div class="field">
+              <label>Visceral fat index</label
+              ><input type="number" step="0.1" id="f-visceral" />
+            </div>
+          </div>
+
+          <div class="section-tag">Target &amp; metabolisme</div>
+          <div class="field-row">
+            <div class="field">
+              <label>Berat ideal (kg)</label
+              ><input type="number" step="0.1" id="f-idealweight" />
+            </div>
+            <div class="field">
+              <label>Weight control (kg)</label
+              ><input type="number" step="0.1" id="f-weightctrl" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Fat control (kg)</label
+              ><input type="number" step="0.1" id="f-fatctrl" />
+            </div>
+            <div class="field">
+              <label>Muscle control (kg)</label
+              ><input type="number" step="0.1" id="f-musclectrl" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Metabolisme basal (kcal)</label
+              ><input type="number" id="f-metabolism" />
+            </div>
+            <div class="field">
+              <label>Usia fisik</label><input type="number" id="f-physage" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Skor kesehatan (health assessment)</label
+            ><input type="number" id="f-health" />
+          </div>
+
+          <div class="section-tag">Bagian tubuh (opsional, kalau kebaca)</div>
+          <div class="field-row">
+            <div class="field">
+              <label>Otot lengan kiri (kg)</label
+              ><input type="number" step="0.1" id="f-armL-m" />
+            </div>
+            <div class="field">
+              <label>Lemak lengan kiri (kg)</label
+              ><input type="number" step="0.1" id="f-armL-f" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Otot lengan kanan (kg)</label
+              ><input type="number" step="0.1" id="f-armR-m" />
+            </div>
+            <div class="field">
+              <label>Lemak lengan kanan (kg)</label
+              ><input type="number" step="0.1" id="f-armR-f" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Otot kaki kiri (kg)</label
+              ><input type="number" step="0.1" id="f-legL-m" />
+            </div>
+            <div class="field">
+              <label>Lemak kaki kiri (kg)</label
+              ><input type="number" step="0.1" id="f-legL-f" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Otot kaki kanan (kg)</label
+              ><input type="number" step="0.1" id="f-legR-m" />
+            </div>
+            <div class="field">
+              <label>Lemak kaki kanan (kg)</label
+              ><input type="number" step="0.1" id="f-legR-f" />
+            </div>
+          </div>
+
+          <div class="section-tag">Lingkar Tubuh / Diameter (Manual)</div>
+          <div class="field-row">
+            <div class="field">
+              <label>Perut (cm)</label
+              ><input type="number" step="0.1" id="f-circ-belly" />
+            </div>
+            <div class="field">
+              <label>Pantat / Pinggul (cm)</label
+              ><input type="number" step="0.1" id="f-circ-hip" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Lengan Kiri (cm)</label
+              ><input type="number" step="0.1" id="f-circ-armL" />
+            </div>
+            <div class="field">
+              <label>Lengan Kanan (cm)</label
+              ><input type="number" step="0.1" id="f-circ-armR" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Paha Kiri (cm)</label
+              ><input type="number" step="0.1" id="f-circ-thighL" />
+            </div>
+            <div class="field">
+              <label>Paha Kanan (cm)</label
+              ><input type="number" step="0.1" id="f-circ-thighR" />
+            </div>
+          </div>
+
+          <div class="section-tag">Klasifikasi tubuh</div>
+          <div class="field">
+            <label>Kategori (sesuai letak huruf V)</label>
+            <select id="f-bodytype">
+              <option value="">— pilih —</option>
+              <option value="Too thin">Too thin</option>
+              <option value="Thin shape">Thin shape</option>
+              <option value="Normal">Normal</option>
+              <option value="Low Fat Muscular">Low Fat Muscular</option>
+              <option value="High fat">High fat</option>
+              <option value="Muscle over weight">Muscle over weight</option>
+              <option value="Slight obesity">Slight obesity</option>
+              <option value="Obesity">Obesity</option>
+              <option value="High obesity">High obesity</option>
+            </select>
+          </div>
+
+          <div class="btn-row" style="margin-top: 8px">
+            <button class="btn btn-ghost" id="btn-review-cancel">Batal</button>
+            <button class="btn btn-primary" id="btn-review-save">
+              Simpan ke riwayat
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-history">
+        <div id="history-list"></div>
+      </section>
+
+      <section class="view" id="view-chart">
+        <div class="card">
+          <div class="chart-select-row field">
+            <label>Metrik</label>
+            <select id="chart-metric">
+              <option value="weight.value">Berat (kg)</option>
+              <option value="muscle.value">Otot (kg)</option>
+              <option value="fat.value">Lemak (kg)</option>
+              <option value="bmi.value">BMI</option>
+              <option value="pbf.value">Body fat % (PBF)</option>
+              <option value="water.value">Air tubuh (kg)</option>
+              <option value="protein.value">Protein (kg)</option>
+              <option value="whr.value">WHR</option>
+              <option value="moistureRatio.value">Moisture ratio (%)</option>
+              <option value="visceralFatIndex.value">Visceral fat index</option>
+              <option value="basicMetabolism">Metabolisme basal (kcal)</option>
+              <option value="physicalAge">Usia fisik</option>
+            </select>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas id="trend-canvas"></canvas>
+          </div>
+          <div class="field-hint" id="chart-empty-hint"></div>
+        </div>
+        <div class="card">
+          <h3>Data</h3>
+          <button class="btn btn-secondary" id="btn-export">
+            Export semua data (.json)
+          </button>
+        </div>
+      </section>
+
+      <div class="bottomnav">
+        <div class="bottomnav-inner">
+          <button class="navbtn active" data-view="home">
+            <span class="icon">🏠</span>Beranda
+          </button>
+          <button class="navbtn" data-view="scan">
+            <span class="icon">📷</span>Scan
+          </button>
+          <button class="navbtn" data-view="history">
+            <span class="icon">📋</span>Riwayat
+          </button>
+          <button class="navbtn" data-view="chart">
+            <span class="icon">📈</span>Grafik
+          </button>
+        </div>
+      </div>
+
+      <div id="detail-modal-root"></div>
+      <div class="toast" id="toast"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js?v=2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/ocr-parse.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
