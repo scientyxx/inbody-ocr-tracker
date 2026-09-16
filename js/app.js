@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const PROXY_URL = "";
+  const PROXY_URL = "https://rapid-haze-6cf5.srialia110.workers.dev";
 
   const views = ["home", "scan", "review", "history", "chart", "profile"];
 
