@@ -1,4 +1,4 @@
-# InBody OCR Tracker
+# Bodify (InBody OCR Tracker)
 
 Aplikasi PWA (*Progressive Web App*) untuk mencatat dan melacak hasil tes komposisi tubuh (InBody) dari gym tiap bulan. Data 100% aman karena tersimpan lokal di perangkat pengguna.
 
@@ -6,6 +6,7 @@ Aplikasi PWA (*Progressive Web App*) untuk mencatat dan melacak hasil tes kompos
 - **Auto-Scan via OCR:** Ekstrak data otomatis dari foto/screenshot laporan InBody menggunakan `Tesseract.js`. 
 - **Visualisasi 4-Compartment:** Ilusi grafis proporsi tubuh (Lemak, Air, Protein, Mineral) yang menyesuaikan gender profil.
 - **Grafik Tren:** Pantau progres berat, otot, lemak, persentase body fat (PBF), BMI, hingga usia fisik.
+- **Exercise History** Pantau history latihan. 
 - **Offline First:** Data tersimpan lokal di HP via `IndexedDB`. Tidak butuh server/database eksternal.
 - **Backup:** Tersedia fitur Export/Import data dalam format `.json`.
 
