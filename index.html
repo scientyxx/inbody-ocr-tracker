@@ -24,7 +24,7 @@
         class="topbar"
         style="
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
         "
       >
@@ -392,6 +392,90 @@
         </div>
       </section>
 
+      <section class="view" id="view-workout">
+        <div class="card">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
+            <h2 style="margin: 0">Riwayat Latihan</h2>
+            <button
+              class="btn btn-primary"
+              id="btn-new-workout"
+              style="width: auto; padding: 8px 14px; font-size: 13px"
+            >
+              + Sesi Baru
+            </button>
+          </div>
+        </div>
+        <div id="workout-list"></div>
+      </section>
+
+      <section class="view" id="view-workout-form">
+        <div class="card">
+          <h2 id="workout-form-title">Sesi Latihan Baru</h2>
+          <div class="field">
+            <label>Tanggal</label>
+            <input type="date" id="w-date" />
+          </div>
+          <div class="field">
+            <label>Bagian tubuh yang dilatih</label>
+            <div class="chip-group" id="w-musclegroups">
+              <button type="button" class="chip" data-group="Chest">
+                Chest
+              </button>
+              <button type="button" class="chip" data-group="Back">Back</button>
+              <button type="button" class="chip" data-group="Lower Back">
+                Lower Back
+              </button>
+              <button type="button" class="chip" data-group="Shoulders">
+                Shoulders
+              </button>
+              <button type="button" class="chip" data-group="Biceps">
+                Biceps
+              </button>
+              <button type="button" class="chip" data-group="Triceps">
+                Triceps
+              </button>
+              <button type="button" class="chip" data-group="Legs">Legs</button>
+              <button type="button" class="chip" data-group="Abs">Abs</button>
+              <button type="button" class="chip" data-group="Cardio">
+                Cardio
+              </button>
+            </div>
+          </div>
+
+          <div class="section-tag">Daftar Latihan</div>
+          <div id="w-exercise-list"></div>
+          <button
+            class="btn btn-ghost"
+            id="btn-add-exercise-row"
+            style="margin-top: 6px"
+          >
+            + Tambah Latihan
+          </button>
+
+          <div class="field" style="margin-top: 14px">
+            <label>Catatan (opsional)</label>
+            <input
+              type="text"
+              id="w-notes"
+              placeholder="misal: badan pegel, PR hari ini, dll"
+            />
+          </div>
+
+          <div class="btn-row" style="margin-top: 14px">
+            <button class="btn btn-ghost" id="btn-workout-cancel">Batal</button>
+            <button class="btn btn-primary" id="btn-workout-save">
+              Simpan Sesi
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section class="view" id="view-history">
         <div id="history-list"></div>
       </section>
@@ -421,6 +505,19 @@
           <div class="field-hint" id="chart-empty-hint"></div>
         </div>
         <div class="card">
+          <h3>Progress Latihan</h3>
+          <div class="field">
+            <label>Pilih latihan</label>
+            <select id="exercise-progress-select">
+              <option value="">— belum ada data —</option>
+            </select>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas id="exercise-trend-canvas"></canvas>
+          </div>
+          <div class="field-hint" id="exercise-chart-hint"></div>
+        </div>
+        <div class="card">
           <h3>Data</h3>
           <button class="btn btn-secondary" id="btn-export">
             Export semua data (.json)
@@ -436,6 +533,9 @@
           <button class="navbtn" data-view="scan">
             <span class="icon">📷</span>Scan
           </button>
+          <button class="navbtn" data-view="workout">
+            <span class="icon">💪</span>Latihan
+          </button>
           <button class="navbtn" data-view="history">
             <span class="icon">📋</span>Riwayat
           </button>
@@ -447,6 +547,7 @@
 
       <div id="detail-modal-root"></div>
       <div class="toast" id="toast"></div>
+      <datalist id="exercise-suggestions"></datalist>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js?v=2"></script>

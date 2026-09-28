@@ -3,7 +3,16 @@
 
   const PROXY_URL = "https://rapid-haze-6cf5.srialia110.workers.dev";
 
-  const views = ["home", "scan", "review", "history", "chart", "profile"];
+  const views = [
+    "home",
+    "scan",
+    "review",
+    "workout",
+    "workout-form",
+    "history",
+    "chart",
+    "profile",
+  ];
 
   function getProfile() {
     try {
@@ -26,7 +35,11 @@
     });
     if (name === "home") renderHome();
     if (name === "history") renderHistory();
-    if (name === "chart") renderChart();
+    if (name === "chart") {
+      renderChart();
+      renderExerciseChartOptions();
+    }
+    if (name === "workout") renderWorkoutList();
     if (name !== "scan") stopQrScanner();
   }
 
@@ -1038,6 +1051,467 @@
     toast("Profil tersimpan ✓");
     showView("home");
   });
+
+  // ---------------- Workout / Latihan tracking ----------------
+  let editingWorkoutId = null;
+  let workoutRowCount = 0;
+
+  const EXERCISE_PRESETS = {
+    Chest: [
+      "Bench Press",
+      "Incline Bench Press",
+      "Dumbbell Fly",
+      "Cable Crossover",
+      "Push Up",
+      "Chest Press Machine",
+    ],
+    Back: [
+      "Lat Pulldown",
+      "Deadlift",
+      "Barbell Row",
+      "Seated Cable Row",
+      "Pull Up",
+      "T-Bar Row",
+    ],
+    "Lower Back": ["Hyperextension", "Good Morning", "Deadlift", "Superman"],
+    Shoulders: [
+      "Overhead Press",
+      "Lateral Raise",
+      "Front Raise",
+      "Face Pull",
+      "Shrug",
+    ],
+    Biceps: [
+      "Barbell Curl",
+      "Dumbbell Curl",
+      "Hammer Curl",
+      "Preacher Curl",
+      "Cable Curl",
+    ],
+    Triceps: [
+      "Tricep Pushdown",
+      "Skull Crusher",
+      "Overhead Tricep Extension",
+      "Close Grip Bench Press",
+      "Dips",
+    ],
+    Legs: [
+      "Squat",
+      "Leg Press",
+      "Leg Extension",
+      "Leg Curl",
+      "Lunges",
+      "Calf Raise",
+    ],
+    Abs: [
+      "Sit Up",
+      "Plank",
+      "Hanging Leg Raise",
+      "Cable Crunch",
+      "Russian Twist",
+    ],
+    Cardio: [
+      "Treadmill",
+      "Cycling",
+      "Elliptical",
+      "Rowing Machine",
+      "Stairmaster",
+    ],
+  };
+
+  async function refreshExerciseSuggestions() {
+    const activeGroups = Array.from(
+      document.querySelectorAll("#w-musclegroups .chip.active"),
+    ).map((c) => c.dataset.group);
+    const names = new Set();
+    activeGroups.forEach((g) =>
+      (EXERCISE_PRESETS[g] || []).forEach((n) => names.add(n)),
+    );
+
+    const sessions = await IronDB.getAllWorkouts();
+    sessions.forEach((s) =>
+      s.exercises.forEach((e) => {
+        if (e.name) names.add(e.name);
+      }),
+    );
+
+    const datalist = document.getElementById("exercise-suggestions");
+    if (datalist) {
+      datalist.innerHTML = [...names]
+        .sort()
+        .map((n) => `<option value="${n.replace(/"/g, "&quot;")}">`)
+        .join("");
+    }
+  }
+
+  function addExerciseBlock(prefill) {
+    const list = document.getElementById("w-exercise-list");
+    const block = document.createElement("div");
+    block.className = "exercise-block";
+    const type = prefill?.type || "strength";
+    block.innerHTML = `
+      <div class="exercise-block-header">
+        <input type="text" class="ex-name" list="exercise-suggestions" placeholder="Nama latihan (misal: Lat Pulldown)" value="${prefill?.name ? prefill.name.replace(/"/g, "&quot;") : ""}">
+        <select class="ex-type">
+          <option value="strength" ${type === "strength" ? "selected" : ""}>Beban</option>
+          <option value="cardio" ${type === "cardio" ? "selected" : ""}>Kardio</option>
+        </select>
+        <button type="button" class="btn-remove-exercise" title="Hapus latihan">×</button>
+      </div>
+      <div class="ex-strength-fields" style="${type === "cardio" ? "display:none;" : ""}">
+        <div class="set-list"></div>
+        <button type="button" class="btn-add-set">+ Tambah Set</button>
+      </div>
+      <div class="ex-cardio-fields" style="${type === "strength" ? "display:none;" : ""}">
+        <div class="field-row">
+          <div class="field"><label>Durasi (menit)</label><input type="number" class="cardio-duration" value="${prefill?.cardio?.duration ?? ""}"></div>
+          <div class="field"><label>Incline (%)</label><input type="number" step="0.5" class="cardio-incline" value="${prefill?.cardio?.incline ?? ""}"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Kecepatan (km/j)</label><input type="number" step="0.1" class="cardio-speed" value="${prefill?.cardio?.speed ?? ""}"></div>
+          <div class="field"><label>Jarak (km, opsional)</label><input type="number" step="0.1" class="cardio-distance" value="${prefill?.cardio?.distance ?? ""}"></div>
+        </div>
+      </div>
+    `;
+
+    const typeSelect = block.querySelector(".ex-type");
+    const strengthFields = block.querySelector(".ex-strength-fields");
+    const cardioFields = block.querySelector(".ex-cardio-fields");
+    typeSelect.addEventListener("change", () => {
+      strengthFields.style.display =
+        typeSelect.value === "strength" ? "" : "none";
+      cardioFields.style.display = typeSelect.value === "cardio" ? "" : "none";
+    });
+
+    block
+      .querySelector(".btn-remove-exercise")
+      .addEventListener("click", () => block.remove());
+
+    const setList = block.querySelector(".set-list");
+    function renumberSets() {
+      setList.querySelectorAll(".set-row").forEach((row, i) => {
+        row.querySelector(".set-label").textContent = `Set ${i + 1}`;
+      });
+    }
+    function addSetRow(setPrefill) {
+      const row = document.createElement("div");
+      row.className = "set-row";
+      row.innerHTML = `
+        <span class="set-label">Set</span>
+        <input type="number" step="0.5" class="set-weight" placeholder="kg" value="${setPrefill?.weight ?? ""}">
+        <input type="number" class="set-reps" placeholder="reps" value="${setPrefill?.reps ?? ""}">
+        <button type="button" class="btn-remove-set" title="Hapus set">×</button>
+      `;
+      row.querySelector(".btn-remove-set").addEventListener("click", () => {
+        row.remove();
+        renumberSets();
+      });
+      setList.appendChild(row);
+      renumberSets();
+    }
+
+    block.querySelector(".btn-add-set").addEventListener("click", () => {
+      const rows = setList.querySelectorAll(".set-row");
+      const last = rows[rows.length - 1];
+      const prev = last
+        ? {
+            weight: last.querySelector(".set-weight").value,
+            reps: last.querySelector(".set-reps").value,
+          }
+        : null;
+      addSetRow(prev);
+    });
+
+    if (prefill?.sets?.length) {
+      prefill.sets.forEach((s) => addSetRow(s));
+    } else if (type === "strength") {
+      addSetRow();
+    }
+
+    list.appendChild(block);
+  }
+
+  document
+    .getElementById("btn-add-exercise-row")
+    .addEventListener("click", () => addExerciseBlock());
+
+  document
+    .getElementById("btn-add-exercise-row")
+    .addEventListener("click", () => addExerciseBlock());
+
+  document
+    .getElementById("btn-add-exercise-row")
+    .addEventListener("click", () => addExerciseRow());
+
+  document.querySelectorAll("#w-musclegroups .chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chip.classList.toggle("active");
+      refreshExerciseSuggestions();
+    });
+  });
+
+  document.getElementById("btn-new-workout").addEventListener("click", () => {
+    editingWorkoutId = null;
+    document.getElementById("workout-form-title").textContent =
+      "Sesi Latihan Baru";
+    setVal("w-date", new Date().toISOString().slice(0, 10));
+    setVal("w-notes", "");
+    document
+      .querySelectorAll("#w-musclegroups .chip")
+      .forEach((c) => c.classList.remove("active"));
+    document.getElementById("w-exercise-list").innerHTML = "";
+    addExerciseBlock();
+    showView("workout-form");
+  });
+
+  document
+    .getElementById("btn-workout-cancel")
+    .addEventListener("click", () => showView("workout"));
+
+  document;
+  document
+    .getElementById("btn-workout-save")
+    .addEventListener("click", async () => {
+      const date = getVal("w-date");
+      if (!date) {
+        toast("Tanggal wajib diisi");
+        return;
+      }
+
+      const muscleGroups = Array.from(
+        document.querySelectorAll("#w-musclegroups .chip.active"),
+      ).map((c) => c.dataset.group);
+
+      const exercises = Array.from(
+        document.querySelectorAll("#w-exercise-list .exercise-block"),
+      )
+        .map((block) => {
+          const name = block.querySelector(".ex-name").value.trim();
+          const type = block.querySelector(".ex-type").value;
+          if (type === "cardio") {
+            return {
+              name,
+              type,
+              cardio: {
+                duration:
+                  parseFloat(block.querySelector(".cardio-duration").value) ||
+                  null,
+                incline:
+                  parseFloat(block.querySelector(".cardio-incline").value) ||
+                  null,
+                speed:
+                  parseFloat(block.querySelector(".cardio-speed").value) ||
+                  null,
+                distance:
+                  parseFloat(block.querySelector(".cardio-distance").value) ||
+                  null,
+              },
+            };
+          }
+          const sets = Array.from(block.querySelectorAll(".set-row"))
+            .map((row) => ({
+              weight:
+                parseFloat(row.querySelector(".set-weight").value) || null,
+              reps: parseInt(row.querySelector(".set-reps").value) || null,
+            }))
+            .filter((s) => s.weight != null || s.reps != null);
+          return { name, type, sets };
+        })
+        .filter((e) => e.name && (e.type === "cardio" || e.sets.length));
+
+      if (!exercises.length) {
+        toast("Tambahkan minimal 1 latihan");
+        return;
+      }
+
+      const session = {
+        id:
+          editingWorkoutId ||
+          (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+        date,
+        muscleGroups,
+        exercises,
+        notes: getVal("w-notes") || "",
+        createdAt: new Date().toISOString(),
+      };
+
+      await IronDB.saveWorkout(session);
+      toast("Sesi latihan tersimpan ✓");
+      editingWorkoutId = null;
+      showView("workout");
+    });
+
+  async function renderWorkoutList() {
+    const sessions = (await IronDB.getAllWorkouts()).slice().reverse();
+    const el = document.getElementById("workout-list");
+    if (!sessions.length) {
+      el.innerHTML = `<div class="empty-state">Belum ada sesi latihan. Tap "+ Sesi Baru" buat mulai catat.</div>`;
+      return;
+    }
+    el.innerHTML = sessions
+      .map(
+        (s) => `
+      <div class="history-item" data-id="${s.id}">
+        <div class="row-top">
+          <div class="date">${s.date}</div>
+          <div class="sn">${s.muscleGroups.join(", ")}</div>
+        </div>
+                <div class="field-hint" style="margin-top:2px;">
+          ${s.exercises
+            .map((e) => {
+              if (e.type === "cardio") {
+                const c = e.cardio || {};
+                return `${e.name} (${c.duration ?? "?"} menit${c.incline ? `, incline ${c.incline}%` : ""})`;
+              }
+              const summary = (e.sets || [])
+                .map((st) => `${st.weight ?? "?"}kg×${st.reps ?? "?"}`)
+                .join(", ");
+              return `${e.name}: ${summary}`;
+            })
+            .join(" · ")}
+        </div>
+      </div>`,
+      )
+      .join("");
+
+    el.querySelectorAll(".history-item").forEach((card) => {
+      card.addEventListener("click", () =>
+        openWorkoutDetail(card.dataset.id, sessions),
+      );
+    });
+  }
+
+  function openWorkoutDetail(id, sessions) {
+    const s = sessions.find((x) => x.id === id);
+    if (!s) return;
+    const root = document.getElementById("detail-modal-root");
+    root.innerHTML = `
+      <div class="modal-backdrop" id="modal-backdrop">
+        <div class="modal-sheet">
+          <h2>${s.date}</h2>
+          <div class="section-tag">Bagian tubuh</div>
+          <p>${s.muscleGroups.join(", ") || "—"}</p>
+          <div class="section-tag">Latihan</div>
+          ${s.exercises
+            .map((e) => {
+              if (e.type === "cardio") {
+                const c = e.cardio || {};
+                const parts = [];
+                if (c.duration != null) parts.push(`${c.duration} menit`);
+                if (c.incline != null) parts.push(`incline ${c.incline}%`);
+                if (c.speed != null) parts.push(`${c.speed} km/j`);
+                if (c.distance != null) parts.push(`${c.distance} km`);
+                return detailRow(e.name, parts.join(" · ") || "—");
+              }
+              const summary = (e.sets || [])
+                .map(
+                  (st, i) =>
+                    `Set${i + 1}: ${st.weight ?? "?"}kg×${st.reps ?? "?"}`,
+                )
+                .join(" · ");
+              return detailRow(e.name, summary || "—");
+            })
+            .join("")}
+          ${s.notes ? `<div class="section-tag">Catatan</div><p>${s.notes}</p>` : ""}
+          <div class="btn-row" style="margin-top:16px;">
+            <button class="btn btn-secondary" id="btn-edit-workout">Edit</button>
+            <button class="btn btn-danger" id="btn-delete-workout">Hapus</button>
+            <button class="btn btn-secondary" id="btn-close-detail">Tutup</button>
+          </div>
+        </div>
+      </div>`;
+    document
+      .getElementById("btn-close-detail")
+      .addEventListener("click", () => (root.innerHTML = ""));
+    document
+      .getElementById("modal-backdrop")
+      .addEventListener("click", (ev) => {
+        if (ev.target.id === "modal-backdrop") root.innerHTML = "";
+      });
+    document
+      .getElementById("btn-delete-workout")
+      .addEventListener("click", async () => {
+        if (!confirm("Hapus sesi latihan tanggal " + s.date + "?")) return;
+        await IronDB.deleteWorkout(s.id);
+        root.innerHTML = "";
+        renderWorkoutList();
+        toast("Dihapus");
+      });
+    document
+      .getElementById("btn-edit-workout")
+      .addEventListener("click", () => {
+        root.innerHTML = "";
+        editingWorkoutId = s.id;
+        document.getElementById("workout-form-title").textContent =
+          "Edit Sesi Latihan";
+        setVal("w-date", s.date);
+        setVal("w-notes", s.notes || "");
+        document
+          .querySelectorAll("#w-musclegroups .chip")
+          .forEach((c) => c.classList.remove("active"));
+      document.getElementById("w-exercise-list").innerHTML = "";
+      s.exercises.forEach((e) => addExerciseBlock(e));
+      refreshExerciseSuggestions();
+      showView("workout-form");
+    });
+  }
+
+  async function renderExerciseChartOptions() {
+    const sessions = await IronDB.getAllWorkouts();
+    const select = document.getElementById("exercise-progress-select");
+    const hint = document.getElementById("exercise-chart-hint");
+    if (!select) return;
+
+    const names = new Set();
+    sessions.forEach((s) =>
+      s.exercises.forEach((e) => {
+        if (e.name && e.type !== "cardio") names.add(e.name);
+      }),
+    );
+
+    const current = select.value;
+    select.innerHTML = "";
+    if (!names.size) {
+      select.innerHTML = `<option value="">— belum ada data —</option>`;
+      hint.textContent = "Catat latihan dulu di tab Latihan.";
+      return;
+    }
+    [...names].sort().forEach((n) => {
+      const opt = document.createElement("option");
+      opt.value = n;
+      opt.textContent = n;
+      select.appendChild(opt);
+    });
+    if ([...names].includes(current)) select.value = current;
+
+    const draw = () => {
+      const name = select.value;
+      const points = sessions
+        .filter((s) =>
+          s.exercises.some((e) => e.name === name && e.type !== "cardio"),
+        )
+        .map((s) => {
+          const relevant = s.exercises.filter(
+            (e) => e.name === name && e.type !== "cardio",
+          );
+          const weights = relevant
+            .flatMap((e) => (e.sets || []).map((st) => st.weight))
+            .filter((w) => w != null);
+          return { x: s.date, y: weights.length ? Math.max(...weights) : null };
+        })
+        .filter((p) => p.y != null);
+      hint.textContent =
+        points.length < 2 ? "Butuh minimal 2 sesi buat lihat tren." : "";
+      IronCharts.renderExercise(
+        "exercise-trend-canvas",
+        points,
+        name,
+        "#ff5a36",
+      );
+    };
+    select.onchange = draw;
+    draw();
+  }
 
   showView(getProfile() ? "home" : "profile");
 })();
