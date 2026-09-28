@@ -1,6 +1,6 @@
 {
-  "name": "Iron Log — Gym Body Tracker",
-  "short_name": "Iron Log",
+  "name": "Bodify — Gym Body Tracker",
+  "short_name": "Bodify",
   "description": "Scan hasil timbang gym tiap bulan dan pantau progress body composition kamu.",
   "start_url": "./index.html",
   "scope": "./",
