@@ -668,10 +668,12 @@ details.raw-ocr pre {
   display: flex;
   gap: 8px;
   margin-bottom: 10px;
+  align-items: center;
 }
 
 .exercise-block-header .ex-name {
   flex: 2;
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -682,12 +684,17 @@ details.raw-ocr pre {
 
 .exercise-block-header .ex-type {
   flex: 1;
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px 8px;
   color: var(--text);
   font-size: 13px;
+}
+
+.exercise-block-header .btn-remove-exercise {
+  flex-shrink: 0;
 }
 
 .set-row {
@@ -706,6 +713,8 @@ details.raw-ocr pre {
 
 .set-row input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
